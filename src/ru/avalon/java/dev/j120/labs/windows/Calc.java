@@ -4,13 +4,13 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
 import java.awt.GridLayout;
 import java.awt.LayoutManager;
+import java.awt.Point;
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ActionEvent;
-import java.awt.event.KeyEvent;
-import java.awt.event.KeyListener;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.AbstractAction;
@@ -29,8 +29,11 @@ import javax.swing.border.LineBorder;
 public class Calc extends JFrame {
 
     private final int SIDEWIDTH = 308;    // Задаём размерность окна по Х
-    private final int SIDEHEIGTH = 446;  //  Задаем размерность окна по У
+    private final int SIDEHEIGTH = 474;  //  Задаем размерность окна по У
     private final Dimension dimension = new Dimension(60, 60);//Задаем размер кнопок
+    private final int MAXWIDTH = 508;    // Задаём макс размерность окна по Х
+    private final int MAXHEIGTH = 674;  //  Задаем макс размерность окна по У
+
     private final JButton[] buttons = new JButton[16]; //создаём масств для будущих кнопок
     private final String[] textButton = new String[]{"7", "8", "9", "+",
         "4", "5", "6", "-",
@@ -64,18 +67,21 @@ public class Calc extends JFrame {
 
         rez.setFont(BIGFONT);//устанавлеваем шрифт
         rez.setHorizontalAlignment(SwingConstants.RIGHT);//выравнивание текста по правому краю
-        rez.setBorder(new EmptyBorder(5, 5, 5, 5));//делаем пустую рамку 5п
+        LineBorder border = new LineBorder(Color.red, 1);//создаём рамку с линией
+        EmptyBorder emptyBorder = new EmptyBorder(5, 5, 5, 5);//делаем пустую рамку 5п
+        CompoundBorder compound = new CompoundBorder(border, emptyBorder);//объединяем две рамки
+
+        rez.setBorder(compound);//добавляем рамки
 
         up.setLayout(new BorderLayout());//Устанавливаем менеджер компановки в верхнюю панель
         up.add(rez);//добавляем надпись в верхнюю панель
-        up.setBorder(new EmptyBorder(0, 5, 0, 5));//добавляем рамку панели 5 п
+        up.setBorder(new EmptyBorder(15, 0, 10, 0));//добавляем рамку панели 5 п
         pano.add(up, BorderLayout.NORTH);//добавляем панель в верхушку окна
 
         ravno.setFont(BIGFONT);//устанавлеваем шрифт
         ravno.setFocusable(false);// убираем рамку фокуса
 
-        EmptyBorder emptyBorder = new EmptyBorder(10, 0, 0, 0);//создаем пустую рамку 10 пт
-        LineBorder border = new LineBorder(Color.red, 1);//создаём рамку с линией
+        emptyBorder = new EmptyBorder(10, 0, 0, 0);//создаем пустую рамку 10 пт
         ravno.setBorder(border);//добавляем рамку
         ravno.addActionListener(this::pressButton);//добавляем слушателя
 
@@ -107,18 +113,47 @@ public class Calc extends JFrame {
         pano.add(center);//добавляем центральную панель 
 
         emptyBorder = new EmptyBorder(0, 10, 10, 10);//создаем пустую рамку
-        CompoundBorder compound = new CompoundBorder(border, emptyBorder);//объединяем две рамки
+        compound = new CompoundBorder(border, emptyBorder);//объединяем две рамки
         pano.setBorder(compound);//добавляем рамки в основное полотно
 
         setContentPane(pano);// устанавливаем базовую панель в верхний слой окна
-        setFocusable(true);
 
-        setMaximumSize(new Dimension(50 + SIDEWIDTH, 50 + SIDEHEIGTH));//установка максимального размера окна
+        setMaximumSize(new Dimension(MAXWIDTH, MAXHEIGTH));//установка максимального размера окна
         setMinimumSize(new Dimension(SIDEWIDTH, SIDEHEIGTH));//установка минимального размера окна
-        
+
         setKEYboard(); //добавляем клавиатуру к кнопкам     
         setLocationRelativeTo(null);//установка окна в центре экрана
 
+    }
+
+    /**
+     * переоределяем метод для ограничения максимального размера окна
+     *
+     * @param g графический компанент
+     */
+    @Override
+    public void paint(Graphics g) {
+        Dimension size = getSize();//получаем размеры окна
+        int width = size.width;
+        int height = size.height;
+        /**
+         * если текущие размеры больше максимальных то перерировываем окно в
+         * максимальный размер
+         */
+        if (width > MAXWIDTH || height > MAXHEIGTH) {
+            Point location = getLocation();//получаем координаты окна
+            size.width = Math.min(MAXWIDTH, size.width); //устанавливаем размерность окна
+            size.height = Math.min(MAXHEIGTH, size.height);
+            setVisible(false);//скрываем окно, чтобы небыло мерцаний
+            setSize(size);//задаем размер окна
+            if (location.x <= 0 && location.y <= 0) {
+                setLocationRelativeTo(null);//установка окна в центре экрана
+            } else {
+                setLocation(location);//задаем позицию окна
+            }
+            setVisible(true);//делаем окно видимым
+        }
+        super.paint(g); //возвращаем стандартный метод
     }
 
     /**
@@ -166,18 +201,28 @@ public class Calc extends JFrame {
             case ("-"):
             case ("*"):
             case ("/"):
-                isRezalt = false;
-                if (secondWord.isEmpty()) {
-                    round();//откинуть хвост
+                if (!firstWord.isEmpty()) {
+                    isRezalt = false;
                     action = command;//задать слово необходимого действия
+
+                    if (!secondWord.isEmpty()) {
+                        action = command;//задать слово необходимого действия
+                        firstWord = math(firstWord, secondWord, action);//получить результат
+                        round();//откинуть квост
+                        secondWord = "";
+                        copyTobuffer();//скопировать рузультат в буффер
+                        isRezalt = true;
+                    }
+                    round();//откинуть хвост 
                 }
                 break;
             default:
-                isRezalt();
+
                 if (action.isEmpty()) {
                     firstWord += command;
                 } else {
                     secondWord += command;
+
                 }
                 break;
         }
